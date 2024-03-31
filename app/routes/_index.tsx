@@ -1,12 +1,15 @@
 import { PrismaClient } from '@prisma/client';
-import { Form, redirect } from '@remix-run/react';
+import { useFetcher } from '@remix-run/react';
 import type { ActionFunctionArgs } from '@remix-run/node';
+import { format } from 'date-fns';
+import { useEffect, useRef } from 'react';
 
 const db = new PrismaClient();
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const { date, type, text } = Object.fromEntries(formData);
+  await new Promise((res) => setTimeout(res, 1000));
   if (
     typeof date !== 'string' ||
     typeof type !== 'string' ||
@@ -14,17 +17,26 @@ export async function action({ request }: ActionFunctionArgs) {
   ) {
     throw new Error('Bad request');
   }
-  await db.entry.create({
+  return await db.entry.create({
     data: {
       date: new Date(date),
       type,
       text,
     },
   });
-  return redirect('/');
 }
 
 export default function Index() {
+  const { Form, state } = useFetcher();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (state === 'idle' && textareaRef?.current) {
+      textareaRef.current.value = '';
+      textareaRef.current.focus();
+    }
+  }, [state]);
+
   return (
     <div className='p-10'>
       <h1 className='text-5xl'>Work Journal</h1>
@@ -33,52 +45,72 @@ export default function Index() {
       </p>
 
       <div className='my-8 border p-2'>
+        <p className='italic'>Create an entry</p>
         <Form method='post'>
-          <p className='italic'>Create an entry</p>
-          <div>
-            <div className='mt-4'>
-              <input type='date' name='date' className='text-gray-700' />
-            </div>
-            <div className='mt-2 space-x-4'>
-              <label>
-                <input className='mr-1' type='radio' name='type' value='work' />
-                Work
-              </label>
-              <label>
+          <fieldset
+            className='disabled:opacity-70'
+            disabled={state === 'submitting'}
+          >
+            <div>
+              <div className='mt-4'>
                 <input
-                  className='mr-1'
-                  type='radio'
-                  name='type'
-                  value='learning'
+                  type='date'
+                  name='date'
+                  required
+                  className='text-gray-700'
+                  defaultValue={format(new Date(), 'yyyy-MM-dd')}
                 />
-                Learning
-              </label>
-              <label>
-                <input
-                  className='mr-1'
-                  type='radio'
-                  name='type'
-                  value='interesting-thing'
+              </div>
+              <div className='mt-2 space-x-4'>
+                <label>
+                  <input
+                    className='mr-1'
+                    type='radio'
+                    name='type'
+                    value='work'
+                    required
+                    defaultChecked
+                  />
+                  Work
+                </label>
+                <label>
+                  <input
+                    className='mr-1'
+                    type='radio'
+                    name='type'
+                    value='learning'
+                  />
+                  Learning
+                </label>
+                <label>
+                  <input
+                    className='mr-1'
+                    type='radio'
+                    name='type'
+                    value='interesting-thing'
+                  />
+                  Interesting thing
+                </label>
+              </div>
+              <div className='mt-2'>
+                <textarea
+                  ref={textareaRef}
+                  name='text'
+                  className='w-full text-gray-700'
+                  placeholder='Write your entry...'
+                  required
                 />
-                Interesting thing
-              </label>
+              </div>
+              <div className='mt-1 text-right'>
+                <button
+                  className='bg-blue-500 px-4 py-1 font-medium text-white '
+                  type='submit'
+                >
+                  {state === 'submitting' ? 'Saving...' : 'Save'}
+                </button>
+              </div>
             </div>
-            <div className='mt-2'>
-              <textarea
-                name='text'
-                className='w-full text-gray-700'
-                placeholder='Write your entry...'
-              />
-            </div>
-            <div className='mt-1 text-right'>
-              <button
-                className='bg-blue-500 px-4 py-1 font-medium text-white '
-                type='submit'
-              >
-                Save
-              </button>
-            </div>
-          </div>
+          </fieldset>
         </Form>
       </div>
 
